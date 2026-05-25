@@ -163,6 +163,9 @@
             <button class="btn-num" onclick="insert('.')">.</button>
             <button class="btn-op" onclick="insert('^')">xʸ</button>
             <button class="btn-eq" onclick="calculate()">=</button>
+
+            <button class="btn-func span-2" onclick="insert('(')">(</button>
+            <button class="btn-func span-2" onclick="insert(')')">)</button>
         </div>
         <div style="text-align:center; color:#666; font-size:13px; margin-top:18px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.05);">
             made using <span style="color:#6b9fff;">OpenCode</span>
@@ -182,6 +185,7 @@
         }
 
         function insert(val) {
+            if (/= $/.test(expression)) { expression = ''; currentValue = ''; }
             if (val === 'pi') { currentValue += Math.PI.toString(); expression += '\u03C0'; }
             else if (val === 'e') { currentValue += Math.E.toString(); expression += 'e'; }
             else { currentValue += val; expression += val; }
@@ -190,59 +194,30 @@
 
         function sciOp(op) {
             if (currentValue === '' && op !== 'negate') return;
-            const num = parseFloat(currentValue);
-            fetch('/calculate', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({op, a: num})
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.error) {
-                    resultEl.textContent = data.error;
-                    resultEl.classList.add('error');
-                } else {
-                    const symbols = {
-                        sin:'sin', cos:'cos', tan:'tan', asin:'asin', acos:'acos', atan:'atan',
-                        log:'log', ln:'ln', sqrt:'\u221A', cbrt:'\u221B',
-                        square:'\u00B2', cube:'\u00B3', exp:'e^', tenx:'10^',
-                        factorial:'!', abs:'| |', inv:'1/', negate:'\u00B1'
-                    };
-                    expression = (symbols[op] || op) + '(' + expression + ')';
-                    currentValue = data.result.toString();
-                    updateDisplay();
-                }
-            });
+            if (/= $/.test(expression)) { expression = ''; currentValue = ''; }
+            if (/[\+\-\*\/\^%\u2212\(]$/.test(expression)) return;
+
+            switch(op) {
+                case 'negate':    expression = '-(' + expression + ')'; break;
+                case 'inv':       expression = '1/(' + expression + ')'; break;
+                case 'square':    expression = '(' + expression + ')\u00B2'; break;
+                case 'cube':      expression = '(' + expression + ')\u00B3'; break;
+                case 'sqrt':      expression = '\u221A(' + expression + ')'; break;
+                case 'cbrt':      expression = '\u221B(' + expression + ')'; break;
+                default:          expression = op + '(' + expression + ')'; break;
+            }
+            currentValue = expression;
+            updateDisplay();
         }
 
         function calculate() {
             if (currentValue === '') return;
-            const tokens = expression.match(/[+\-*/^%]/g);
-            const lastToken = tokens ? tokens[tokens.length - 1] : null;
-            const ops = {'+':'+','*':'*','/':'/','^':'^','%':'%','\u2212':'-'};
-            if (lastToken && lastToken in ops) return;
+            if (/[\+\-\*\/\^%\u2212\(]$/.test(expression)) return;
 
-            const parts = expression.split(/[+\-*/^%]/);
-            if (parts.length < 2) {
-                try {
-                    const num = parseFloat(currentValue);
-                    if (!isNaN(num)) resultEl.textContent = num;
-                } catch(e) {}
-                return;
-            }
-
-            const numA = parseFloat(parts[parts.length - 2]);
-            const numB = parseFloat(parts[parts.length - 1]);
-            const opChar = expression.match(/[+\-*/^%]/g).pop();
-            const opMap = {'\u2212':'-'};
-            const op = opMap[opChar] || opChar;
-
-            if (isNaN(numA) || isNaN(numB)) return;
-
-            fetch('/calculate', {
+            fetch('/evaluate', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({op, a: numA, b: numB})
+                body: JSON.stringify({expression: expression})
             })
             .then(r => r.json())
             .then(data => {

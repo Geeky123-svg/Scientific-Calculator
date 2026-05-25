@@ -76,5 +76,57 @@ def calculate():
     return jsonify({'result': result})
 
 
+@app.route('/evaluate', methods=['POST'])
+def evaluate():
+    data = request.get_json()
+    expr = data.get('expression', '')
+
+    expr = expr.replace('\u00D7', '*').replace('\u00F7', '/')
+    expr = expr.replace('^', '**').replace('\u2212', '-')
+    expr = expr.replace('\u03C0', str(math.pi))
+    expr = expr.replace('\u221A', 'sqrt').replace('\u221B', 'cbrt')
+    expr = expr.replace('\u00B2', '**2').replace('\u00B3', '**3')
+
+    namespace = {
+        'sin': lambda x: math.sin(math.radians(x)),
+        'cos': lambda x: math.cos(math.radians(x)),
+        'tan': lambda x: math.tan(math.radians(x)),
+        'asin': lambda x: math.degrees(math.asin(x)) if -1 <= x <= 1 else float('nan'),
+        'acos': lambda x: math.degrees(math.acos(x)) if -1 <= x <= 1 else float('nan'),
+        'atan': lambda x: math.degrees(math.atan(x)),
+        'log': lambda x: math.log10(x) if x > 0 else float('nan'),
+        'ln': lambda x: math.log(x) if x > 0 else float('nan'),
+        'sqrt': lambda x: math.sqrt(x) if x >= 0 else float('nan'),
+        'cbrt': lambda x: x ** (1/3) if x >= 0 else -((-x) ** (1/3)),
+        'exp': math.exp,
+        'tenx': lambda x: 10 ** x,
+        'factorial': lambda x: math.factorial(x) if x >= 0 and x == int(x) else float('nan'),
+        'abs': abs,
+        'pi': math.pi,
+        'e': math.e,
+        '__builtins__': {},
+    }
+
+    try:
+        result = eval(expr, namespace)
+    except ZeroDivisionError:
+        return jsonify({'error': 'Error: Division by zero'}), 400
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Error: Math domain error - check your input'}), 400
+    except Exception:
+        return jsonify({'error': 'Error: Invalid expression'}), 400
+
+    if isinstance(result, float) and math.isnan(result):
+        return jsonify({'error': 'Error: Math domain error - check your input'}), 400
+
+    if isinstance(result, float) and (math.isinf(result) or math.isnan(result)):
+        return jsonify({'error': 'Error: Result undefined'}), 400
+
+    if isinstance(result, complex):
+        return jsonify({'error': 'Error: Complex number - cannot compute root of a negative number'}), 400
+
+    return jsonify({'result': result})
+
+
 if __name__ == '__main__':
     app.run(debug=True)
