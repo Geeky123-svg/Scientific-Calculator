@@ -185,7 +185,7 @@
         }
 
         function insert(val) {
-            if (/= $/.test(expression)) { expression = ''; currentValue = ''; }
+            if (/=$/.test(expression)) { expression = currentValue; }
             if (val === 'pi') { currentValue += Math.PI.toString(); expression += '\u03C0'; }
             else if (val === 'e') { currentValue += Math.E.toString(); expression += 'e'; }
             else { currentValue += val; expression += val; }
@@ -194,7 +194,7 @@
 
         function sciOp(op) {
             if (currentValue === '' && op !== 'negate') return;
-            if (/= $/.test(expression)) { expression = ''; currentValue = ''; }
+            if (/=$/.test(expression)) { expression = currentValue; }
             if (/[\+\-\*\/\^%\u2212\(]$/.test(expression)) return;
 
             switch(op) {
